@@ -1,0 +1,49 @@
+services:
+  frontend:
+    build: ../frontend
+    ports:
+      - "3002:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=https://evdeger.durinx.com/api
+      - NEXT_PUBLIC_GA_MEASUREMENT_ID=${NEXT_PUBLIC_GA_MEASUREMENT_ID:-}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://evdeger:evdeger_prod_2026@db:5432/evdeger
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=evdeger-secret-key-change-in-prod
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL:-bilgi@evdeger.durinx.com}
+      - SCRAPFLY_API_KEY=scp-live-754d8a110c6a4a5da50ba7e1f27007c3
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: evdeger
+      POSTGRES_USER: evdeger
+      POSTGRES_PASSWORD: evdeger_prod_2026
+    volumes:
+      - evdeger_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - evdeger_redis:/data
+    restart: unless-stopped
+
+volumes:
+  evdeger_pgdata:
+  evdeger_redis:
