@@ -6,30 +6,29 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ValuationCard } from "@/components/ValuationCard";
 import { ConfidenceBar } from "@/components/ConfidenceBar";
 import { StatCard } from "@/components/StatCard";
 import { TrendChart } from "@/components/TrendChart";
-import { EmailCapture } from "@/components/EmailCapture";
-import { EmailModal } from "@/components/EmailModal";
 import { EmailSignupForm } from "@/components/EmailSignupForm";
+import { EmailModal } from "@/components/EmailModal";
 import { PriceTrendSection } from "@/components/PriceTrendSection";
 import { DetailForm } from "@/components/DetailForm";
 import { SimilarListings } from "@/components/SimilarListings";
 import { NearbyListings } from "@/components/NearbyListings";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { SocialShare } from "@/components/SocialShare";
+import { SearchAnimation } from "@/components/SearchAnimation";
 import { incrementValuationCount } from "@/components/SocialProof";
 import { trackEvent } from "@/components/Analytics";
+import { AuthGate, SaveHomeButton } from "@/components/AuthGate";
 import { getValuation, formatTL, formatPercent, formatNumber } from "@/lib/api";
 import { getMockValuation } from "@/lib/mock-data";
 import type { ValuationResult } from "@/lib/api";
 
 const USE_MOCK = !process.env.NEXT_PUBLIC_API_URL;
 
-// Hook: animated number counting
 function useAnimatedNumber(target: number, duration: number = 1200) {
   const [current, setCurrent] = useState(0);
-
   useEffect(() => {
     const startTime = Date.now();
     const animate = () => {
@@ -41,11 +40,9 @@ function useAnimatedNumber(target: number, duration: number = 1200) {
     };
     requestAnimationFrame(animate);
   }, [target, duration]);
-
   return current;
 }
 
-// Get current month/year in Turkish
 function getCurrentReportDate(): string {
   const months = [
     "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -55,12 +52,10 @@ function getCurrentReportDate(): string {
   return `${months[now.getMonth()]} ${now.getFullYear()}`;
 }
 
-// Star rating component
 function StarRating({ score, max = 10 }: { score: number; max?: number }) {
-  const normalizedScore = (score / max) * 5; // Convert to 5-star scale
+  const normalizedScore = (score / max) * 5;
   const fullStars = Math.floor(normalizedScore);
   const hasHalf = normalizedScore - fullStars >= 0.3;
-
   return (
     <div className="flex items-center gap-0.5">
       {[...Array(5)].map((_, i) => (
@@ -73,6 +68,22 @@ function StarRating({ score, max = 10 }: { score: number; max?: number }) {
   );
 }
 
+/** Save search to history (localStorage) */
+function saveSearchHistory(city: string, district: string, neighborhood: string, estimatedValue?: number) {
+  try {
+    const history = JSON.parse(localStorage.getItem("evdeger_search_history") || "[]");
+    const entry = { city, district, neighborhood, estimatedValue, timestamp: new Date().toISOString() };
+    // Remove duplicate if exists
+    const filtered = history.filter(
+      (h: { city: string; district: string; neighborhood: string }) =>
+        !(h.city === city && h.district === district && h.neighborhood === neighborhood)
+    );
+    filtered.unshift(entry);
+    // Keep last 50
+    localStorage.setItem("evdeger_search_history", JSON.stringify(filtered.slice(0, 50)));
+  } catch {}
+}
+
 function SonucContent() {
   const searchParams = useSearchParams();
   const city = searchParams.get("city") || "";
@@ -81,6 +92,7 @@ function SonucContent() {
 
   const [data, setData] = useState<ValuationResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [animationDone, setAnimationDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
 
@@ -93,18 +105,21 @@ function SonucContent() {
 
     async function loadData() {
       try {
+        let result: ValuationResult;
         if (USE_MOCK) {
           await new Promise((r) => setTimeout(r, 1500));
-          setData(getMockValuation(city, district, neighborhood));
+          result = getMockValuation(city, district, neighborhood);
         } else {
-          const result = await getValuation(city, district, neighborhood);
-          setData(result);
+          result = await getValuation(city, district, neighborhood);
         }
-        // Increment valuation counter
+        setData(result);
+        
+        // Save to search history
+        saveSearchHistory(city, district, neighborhood, result.estimated_value_avg);
+        
         incrementValuationCount();
         trackEvent("valuation_completed", { city, district, neighborhood });
 
-        // Show email modal after 3 seconds (if not already subscribed)
         const subscribed = localStorage.getItem("evdeger_email_subscribed");
         if (!subscribed) {
           setTimeout(() => setShowEmailModal(true), 3000);
@@ -118,6 +133,10 @@ function SonucContent() {
 
     loadData();
   }, [city, district, neighborhood]);
+
+  if (!animationDone) {
+    return <SearchAnimation onComplete={() => setAnimationDone(true)} />;
+  }
 
   if (loading) {
     return <SkeletonLoader />;
@@ -146,14 +165,13 @@ function SonucContent() {
   const displayNeighborhood = capitalize(neighborhood);
   const reportDate = getCurrentReportDate();
   const today = new Date().toLocaleDateString("tr-TR");
+  const propertyKey = `${city}-${district}-${neighborhood}`;
 
   return (
     <div className="py-6 sm:py-10">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
 
-        {/* ═══════════════════════════════════════════
-            HERO SECTION
-        ═══════════════════════════════════════════ */}
+        {/* HERO SECTION */}
         <div className="text-center mb-10 animate-fade-in-up">
           <div className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-3">
             <Link href="/" className="hover:text-foreground transition-colors">
@@ -162,9 +180,19 @@ function SonucContent() {
             <span>/</span>
             <span>Değerleme Raporu</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
-            📍 {displayDistrict}, {displayNeighborhood}
-          </h1>
+          <div className="flex items-center justify-center gap-3">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
+              📍 {displayDistrict}, {displayNeighborhood}
+            </h1>
+            <SaveHomeButton
+              propertyKey={propertyKey}
+              propertyData={{
+                city, district, neighborhood,
+                estimatedValue: data.estimated_value_avg,
+              }}
+              className="mt-2"
+            />
+          </div>
           <p className="text-xl sm:text-2xl text-brand-navy font-medium mt-1">
             — {displayCity}
           </p>
@@ -181,32 +209,23 @@ function SonucContent() {
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════
-            SATIŞ DEĞERİ KARTI
-        ═══════════════════════════════════════════ */}
+        {/* SATIŞ + KİRA DEĞERİ KARTLARI — always visible (range shown to all) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 stagger-children">
-          {/* Satış */}
           <SaleValueCard data={data} />
-          {/* Kira */}
           <RentValueCard data={data} />
         </div>
 
         <Separator className="my-8" />
 
-        {/* ═══════════════════════════════════════════
-            BÖLGE İSTATİSTİKLERİ — 6 KART GRID
-        ═══════════════════════════════════════════ */}
+        {/* BÖLGE İSTATİSTİKLERİ — gated: investment metrics behind auth */}
         <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
           <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
             <span>📊</span>
             Bölge İstatistikleri
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 stagger-children">
-            <StatCard
-              icon="💰"
-              label="Ort. m² Fiyatı"
-              value={formatTL(data.avg_price_per_sqm)}
-            />
+          {/* Free stats */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 stagger-children mb-4">
+            <StatCard icon="💰" label="Ort. m² Fiyatı" value={formatTL(data.avg_price_per_sqm)} />
             <StatCard
               icon={data.yoy_change >= 0 ? "📈" : "📉"}
               label="Yıllık Değer Artışı"
@@ -214,54 +233,56 @@ function SonucContent() {
               subtext="son 12 ay"
               valueColor={data.yoy_change >= 0 ? "text-emerald-600" : "text-red-500"}
             />
-            <StatCard
-              icon="📋"
-              label="Aktif İlan Sayısı"
-              value={formatNumber(data.active_listings)}
-              subtext="bu bölgede"
-            />
-            <StatCard
-              icon="📐"
-              label="Ort. Daire Büyüklüğü"
-              value={`${data.avg_apartment_size} m²`}
-            />
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-6 text-center">
-                <span className="text-2xl mb-2 block">⭐</span>
-                <p className="text-sm text-muted-foreground mb-1">Bölge Puanı</p>
-                <StarRating score={data.region_score} />
-              </CardContent>
-            </Card>
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="pt-6 text-center">
-                <span className="text-2xl mb-2 block">🎯</span>
-                <p className="text-sm text-muted-foreground mb-1">Yatırım Potansiyeli</p>
-                <Badge
-                  className={`text-sm font-bold mt-1 ${
-                    data.investment_potential === "Yüksek"
-                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                      : data.investment_potential === "Orta"
-                      ? "bg-amber-100 text-amber-700 hover:bg-amber-100"
-                      : "bg-red-100 text-red-700 hover:bg-red-100"
-                  }`}
-                >
-                  {data.investment_potential}
-                </Badge>
-              </CardContent>
-            </Card>
+            <StatCard icon="📋" label="Aktif İlan Sayısı" value={formatNumber(data.active_listings)} subtext="bu bölgede" />
+            <StatCard icon="📐" label="Ort. Daire Büyüklüğü" value={`${data.avg_apartment_size} m²`} />
           </div>
+          {/* Email signup CTA — above gated content */}
+          <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950/20 dark:to-blue-950/20 border border-emerald-200/50 dark:border-emerald-800/50">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+              <div className="flex-1 text-center sm:text-left">
+                <p className="font-semibold text-slate-900 dark:text-white text-sm">📬 Her ay evinizin değerini alın</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Aylık değerleme raporu — ücretsiz</p>
+              </div>
+              <EmailSignupForm variant="inline" context={`gate_${city}_${district}`} />
+            </div>
+          </div>
+          {/* Gated investment stats */}
+          <AuthGate>
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="hover:shadow-md transition-shadow">
+                <CardContent className="pt-6 text-center">
+                  <span className="text-2xl mb-2 block">⭐</span>
+                  <p className="text-sm text-muted-foreground mb-1">Bölge Puanı</p>
+                  <StarRating score={data.region_score} />
+                </CardContent>
+              </Card>
+              <Card className="hover:shadow-md transition-shadow">
+                <CardContent className="pt-6 text-center">
+                  <span className="text-2xl mb-2 block">🎯</span>
+                  <p className="text-sm text-muted-foreground mb-1">Yatırım Potansiyeli</p>
+                  <Badge
+                    className={`text-sm font-bold mt-1 ${
+                      data.investment_potential === "Yüksek"
+                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                        : data.investment_potential === "Orta"
+                        ? "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                        : "bg-red-100 text-red-700 hover:bg-red-100"
+                    }`}
+                  >
+                    {data.investment_potential}
+                  </Badge>
+                </CardContent>
+              </Card>
+            </div>
+          </AuthGate>
         </div>
 
-        {/* ═══════════════════════════════════════════
-            FİYAT TRENDİ GRAFİĞİ (Orijinal)
-        ═══════════════════════════════════════════ */}
+        {/* FİYAT TRENDİ GRAFİĞİ */}
         <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
           <TrendChart data={data.trend_data} />
         </div>
 
-        {/* ═══════════════════════════════════════════
-            FİYAT TRENDİ — SON 6 AY (Çizgi Grafik)
-        ═══════════════════════════════════════════ */}
+        {/* FİYAT TRENDİ — SON 6 AY */}
         <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.32s" }}>
           <PriceTrendSection
             currentPricePerSqm={data.avg_price_per_sqm}
@@ -272,39 +293,48 @@ function SonucContent() {
 
         <Separator className="my-8" />
 
-        {/* ═══════════════════════════════════════════
-            DETAY GİRİŞ BÖLÜMÜ
-        ═══════════════════════════════════════════ */}
+        {/* DETAY GİRİŞ BÖLÜMÜ */}
         <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.35s" }}>
           <DetailForm basePricePerSqm={data.avg_price_per_sqm} />
         </div>
 
         <Separator className="my-8" />
 
-        {/* ═══════════════════════════════════════════
-            BENZER İLANLAR
-        ═══════════════════════════════════════════ */}
+        {/* BENZER İLANLAR — gated */}
         <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
-          <SimilarListings listings={data.similar_listings} />
+          <AuthGate>
+            <SimilarListings listings={data.similar_listings} />
+          </AuthGate>
         </div>
 
         <Separator className="my-8" />
 
-        {/* ═══════════════════════════════════════════
-            BÖLGEDEKİ İLANLAR (Nearby Links)
-        ═══════════════════════════════════════════ */}
+        {/* BÖLGEDEKİ İLANLAR — gated */}
         {data.nearby_links && (
           <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.42s" }}>
-            <NearbyListings links={data.nearby_links} />
+            <AuthGate>
+              <NearbyListings links={data.nearby_links} />
+            </AuthGate>
           </div>
         )}
 
+        {/* Social Share */}
+        <div className="mb-8 animate-fade-in-up" style={{ animationDelay: "0.43s" }}>
+          <SocialShare city={city} district={district} neighborhood={neighborhood} />
+        </div>
+
         <Separator className="my-8" />
 
-        {/* ═══════════════════════════════════════════
-            EMAIL SIGNUP CTA
-        ═══════════════════════════════════════════ */}
+        {/* EMAIL SIGNUP CTA — works without auth */}
         <div className="max-w-lg mx-auto mb-8 animate-fade-in-up" style={{ animationDelay: "0.45s" }}>
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-semibold text-foreground">
+              📬 Her ay evinizin güncel değerini öğrenin
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Email adresini gir, her ay evin değerini gönderelim — ücretsiz, kayıtsız.
+            </p>
+          </div>
           <EmailSignupForm variant="inline" context={`sonuc_${city}_${district}`} />
         </div>
 
@@ -315,9 +345,7 @@ function SonucContent() {
           location={`${displayCity} ${displayDistrict}`}
         />
 
-        {/* ═══════════════════════════════════════════
-            DISCLAIMER + FOOTER
-        ═══════════════════════════════════════════ */}
+        {/* DISCLAIMER + FOOTER */}
         <div className="mt-10 p-5 rounded-xl bg-muted/50 border border-border/50 text-center animate-fade-in-up" style={{ animationDelay: "0.5s" }}>
           <p className="text-xs text-muted-foreground leading-relaxed">
             ⚠️ Bu değerleme tahmini olup kesin bir fiyat taahhüdü değildir.
@@ -342,12 +370,9 @@ function SonucContent() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SATIŞ DEĞERİ KARTI
-═══════════════════════════════════════════════════════════ */
+/* SATIŞ DEĞERİ KARTI */
 function SaleValueCard({ data }: { data: ValuationResult }) {
   const animatedAvg = useAnimatedNumber(data.estimated_value_avg, 1200);
-
   return (
     <Card className="border-t-4 border-t-brand-navy shadow-lg hover:shadow-xl transition-shadow">
       <CardHeader className="pb-2">
@@ -357,7 +382,6 @@ function SaleValueCard({ data }: { data: ValuationResult }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Main value */}
         <div className="text-center">
           <p className="text-sm text-muted-foreground mb-1">
             {formatTL(data.estimated_value_low)} — {formatTL(data.estimated_value_high)}
@@ -367,16 +391,12 @@ function SaleValueCard({ data }: { data: ValuationResult }) {
           </p>
           <p className="text-xs text-muted-foreground mt-1">ortalama değer</p>
         </div>
-
-        {/* Confidence bar */}
         <ConfidenceBar
           low={data.estimated_value_low}
           average={data.estimated_value_avg}
           high={data.estimated_value_high}
           accentColor="blue"
         />
-
-        {/* m² price */}
         <div className="flex items-center justify-center gap-2 pt-2 border-t border-border/50">
           <span className="text-sm text-muted-foreground">m² fiyatı:</span>
           <span className="text-sm font-bold text-brand-navy">
@@ -388,12 +408,9 @@ function SaleValueCard({ data }: { data: ValuationResult }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   KİRA DEĞERİ KARTI
-═══════════════════════════════════════════════════════════ */
+/* KİRA DEĞERİ KARTI */
 function RentValueCard({ data }: { data: ValuationResult }) {
   const animatedAvg = useAnimatedNumber(data.estimated_rent_avg, 1200);
-
   return (
     <Card className="border-t-4 border-t-brand-green shadow-lg hover:shadow-xl transition-shadow">
       <CardHeader className="pb-2">
@@ -403,7 +420,6 @@ function RentValueCard({ data }: { data: ValuationResult }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Main value */}
         <div className="text-center">
           <p className="text-sm text-muted-foreground mb-1">
             {formatTL(data.estimated_rent_low)} — {formatTL(data.estimated_rent_high)}
@@ -414,30 +430,29 @@ function RentValueCard({ data }: { data: ValuationResult }) {
           </p>
           <p className="text-xs text-muted-foreground mt-1">ortalama aylık kira</p>
         </div>
-
-        {/* Confidence bar */}
         <ConfidenceBar
           low={data.estimated_rent_low}
           average={data.estimated_rent_avg}
           high={data.estimated_rent_high}
           accentColor="green"
         />
-
-        {/* Yield + Amortization */}
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Brüt Kira Getirisi</p>
-            <p className="text-sm font-bold text-brand-green">
-              %{data.gross_rental_yield} <span className="text-xs font-normal">yıllık</span>
-            </p>
+        {/* Gated: yield + amortization */}
+        <AuthGate>
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Brüt Kira Getirisi</p>
+              <p className="text-sm font-bold text-brand-green">
+                %{data.gross_rental_yield} <span className="text-xs font-normal">yıllık</span>
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Amortisman Süresi</p>
+              <p className="text-sm font-bold text-foreground">
+                ~{data.amortization_years} yıl
+              </p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Amortisman Süresi</p>
-            <p className="text-sm font-bold text-foreground">
-              ~{data.amortization_years} yıl
-            </p>
-          </div>
-        </div>
+        </AuthGate>
       </CardContent>
     </Card>
   );
@@ -445,9 +460,7 @@ function RentValueCard({ data }: { data: ValuationResult }) {
 
 export default function SonucPage() {
   return (
-    <Suspense
-      fallback={<SkeletonLoader />}
-    >
+    <Suspense fallback={<SkeletonLoader />}>
       <SonucContent />
     </Suspense>
   );

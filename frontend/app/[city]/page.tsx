@@ -11,6 +11,8 @@ import {
   mockCities,
 } from "@/lib/mock-data";
 import { formatTL } from "@/lib/api";
+import { getCityEmoji } from "@/lib/city-emojis";
+import { EmailSignupForm } from "@/components/EmailSignupForm";
 
 interface CityPageProps {
   params: Promise<{ city: string }>;
@@ -110,6 +112,7 @@ export default async function CityPage({ params }: CityPageProps) {
   const avgPrice = getCityAvgPrice(citySlug);
   const avgRent = Math.round(avgPrice * 0.005);
   const year = new Date().getFullYear();
+  const emoji = getCityEmoji(citySlug);
 
   // Get neighbor cities
   const neighborSlugs = cityNeighbors[citySlug] || [];
@@ -176,48 +179,59 @@ export default async function CityPage({ params }: CityPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Hero */}
-      <section className="bg-gradient-to-b from-brand-navy/5 via-background to-background py-12 sm:py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      {/* Hero — Dark gradient matching homepage style */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 pt-24 pb-16 sm:pt-28 sm:pb-20">
+        {/* Decorative grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        {/* Radial glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl" />
+
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6" aria-label="Breadcrumb">
-            <Link href="/" className="hover:text-foreground transition-colors">
+          <nav className="flex items-center gap-2 text-sm text-white/50 mb-8" aria-label="Breadcrumb">
+            <Link href="/" className="hover:text-white/80 transition-colors">
               Ana Sayfa
             </Link>
             <span>/</span>
-            <span className="text-foreground font-medium">{city.name}</span>
+            <span className="text-white/80 font-medium">{city.name}</span>
           </nav>
 
-          <div className="text-center mb-10">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">
-              {city.name} Ev Fiyatları {year}{" "}
-              <span className="block sm:inline text-brand-green">— Güncel Konut Değerleme</span>
+          <div className="text-center">
+            {/* City emoji — large */}
+            <div className="text-7xl sm:text-8xl mb-4 animate-bounce-slow">
+              {emoji}
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+              {city.name} Ev Fiyatları {year}
+              <span className="block mt-2 bg-gradient-to-r from-emerald-400 to-green-300 bg-clip-text text-transparent">
+                Güncel Konut Değerleme
+              </span>
             </h1>
-            <p className="mt-4 text-lg text-muted-foreground max-w-3xl mx-auto">
+            <p className="mt-5 text-lg text-slate-300 max-w-3xl mx-auto">
               {city.name}&apos;de ortalama konut m² fiyatı{" "}
-              <strong className="text-foreground">{formatTL(avgPrice)}</strong>&apos;dir.
-              {city.name}, Türkiye&apos;nin en dinamik emlak piyasalarından birine sahiptir.
-              İlçe bazlı detaylı fiyat bilgisi için aşağıdaki tabloyu inceleyebilirsiniz.
+              <strong className="text-white">{formatTL(avgPrice)}</strong>&apos;dir.
+              İlçe bazlı detaylı fiyat bilgisi için aşağıya göz atın.
             </p>
           </div>
 
-          {/* Stats bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto mb-12">
-            <div className="text-center p-4 rounded-xl bg-white dark:bg-muted border border-border/50">
-              <p className="text-2xl font-bold text-brand-navy">{formatTL(avgPrice)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Ort. m² Fiyatı</p>
+          {/* Stats bar — on dark bg */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mt-10">
+            <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+              <p className="text-2xl font-bold text-white">{formatTL(avgPrice)}</p>
+              <p className="text-xs text-slate-400 mt-1">Ort. m² Fiyatı</p>
             </div>
-            <div className="text-center p-4 rounded-xl bg-white dark:bg-muted border border-border/50">
-              <p className="text-2xl font-bold text-brand-green">{formatTL(avgRent)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Ort. m² Kira</p>
+            <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+              <p className="text-2xl font-bold text-emerald-400">{formatTL(avgRent)}</p>
+              <p className="text-xs text-slate-400 mt-1">Ort. m² Kira</p>
             </div>
-            <div className="text-center p-4 rounded-xl bg-white dark:bg-muted border border-border/50">
-              <p className="text-2xl font-bold text-brand-navy">{districts.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">İlçe Sayısı</p>
+            <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+              <p className="text-2xl font-bold text-white">{districts.length}</p>
+              <p className="text-xs text-slate-400 mt-1">İlçe Sayısı</p>
             </div>
-            <div className="text-center p-4 rounded-xl bg-white dark:bg-muted border border-border/50">
-              <p className="text-2xl font-bold text-brand-navy">{formatTL(avgPrice * 100)}</p>
-              <p className="text-xs text-muted-foreground mt-1">100m² Tahmini</p>
+            <div className="text-center p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
+              <p className="text-2xl font-bold text-white">{formatTL(avgPrice * 100)}</p>
+              <p className="text-xs text-slate-400 mt-1">100m² Tahmini</p>
             </div>
           </div>
         </div>
@@ -315,6 +329,21 @@ export default async function CityPage({ params }: CityPageProps) {
               </Link>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Email Signup — city page CTA */}
+      <section className="py-12 bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950/20 dark:to-blue-950/20 border-y border-border/30">
+        <div className="mx-auto max-w-lg px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-4">
+            <h3 className="text-xl font-bold text-foreground">
+              📬 Her ay evinizin değerini alın
+            </h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              {city.name}&apos;daki evinizin güncel değerini her ay e-posta ile göndeririz — ücretsiz.
+            </p>
+          </div>
+          <EmailSignupForm variant="inline" context={`city_${citySlug}`} />
         </div>
       </section>
 

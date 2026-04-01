@@ -1,6 +1,6 @@
 """
 EvDeğer — SQLAlchemy Modelleri
-Veritabanı tabloları: listings, valuations, users, searches.
+Veritabanı tabloları: listings, valuations, users, searches, subscribers.
 """
 
 from datetime import datetime
@@ -101,21 +101,26 @@ class User(Base):
 
 
 class Subscriber(Base):
-    """Email aboneleri — fiyat değişikliği bildirimleri için."""
+    """Email aboneleri — aylık ev değeri raporu için."""
 
     __tablename__ = "subscribers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     context: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="general, post_valuation, hero")
-    location: Mapped[str | None] = mapped_column(String(300), nullable=True, comment="İl/İlçe/Mahalle bilgisi")
+    location: Mapped[str | None] = mapped_column(String(300), nullable=True, comment="Legacy: İl/İlçe/Mahalle tek string")
+    location_city: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="İl")
+    location_district: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="İlçe")
+    location_neighborhood: Mapped[str | None] = mapped_column(String(200), nullable=True, comment="Mahalle")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     welcome_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    subscribed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (
         Index("idx_subscribers_email", "email", unique=True),
+        Index("idx_subscribers_location", "location_city", "location_district", "location_neighborhood"),
     )
 
 

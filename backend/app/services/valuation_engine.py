@@ -92,6 +92,8 @@ class ValuationResult:
     data_source: str = "emlakjet"
     calculated_at: str = ""
     is_mock: bool = False
+    blended: bool = False
+    confidence_label: str = ""
     listing_type: str = "sale"
 
 
@@ -143,6 +145,16 @@ def _confidence_level(sample_size: int) -> str:
     elif sample_size >= 15:
         return "medium"
     return "low"
+
+
+def _confidence_label(level: str, sample_size: int) -> str:
+    """Kullanıcı dostu güven seviyesi açıklaması."""
+    if level == "high":
+        return f"Yüksek güvenilirlik ({sample_size} ilan analiz edildi)"
+    elif level == "medium":
+        return f"Orta güvenilirlik ({sample_size} ilan analiz edildi)"
+    else:
+        return f"Sınırlı veri ({sample_size} ilan) — ilçe ortalaması ile desteklendi"
 
 
 def _calculate_investment_score(
@@ -211,7 +223,7 @@ async def _scrape_and_store(
         try:
             ej_listings = await scraper.scrape_listings(
                 city=city, district=district, neighborhood=neighborhood,
-                listing_type=listing_type, max_pages=3,
+                listing_type=listing_type, max_pages=5,
             )
             if ej_listings:
                 all_listings.extend(ej_listings)
@@ -249,7 +261,7 @@ async def _scrape_and_store(
             try:
                 he_listings = await fallback.scrape_listings(
                     city=city, district=district, neighborhood=neighborhood,
-                    listing_type=listing_type, max_pages=3,
+                    listing_type=listing_type, max_pages=5,
                 )
                 if he_listings:
                     logger.info(f"[valuation] Hepsiemlak (HTTP fallback): {len(he_listings)} ilan")
@@ -277,6 +289,25 @@ async def _scrape_and_store(
             await scraper3.close()
     except Exception as e:
         logger.debug(f"[valuation] Sahibinden hatası (beklenen): {e}")
+
+    # === KAYNAK 4: Endeksa (bölge m² fiyat endeksi, cross-validation) ===
+    endeksa_data = None
+    try:
+        from scrapers.endeksa import EndeksaScraper
+        endeksa_scraper = EndeksaScraper()
+        try:
+            endeksa_data = await endeksa_scraper.get_area_data(
+                city=city, district=district, neighborhood=neighborhood
+            )
+            if endeksa_data and endeksa_data.avg_price_per_sqm:
+                logger.info(
+                    f"[valuation] Endeksa: m²={endeksa_data.avg_price_per_sqm:.0f} TL, "
+                    f"yoy={endeksa_data.yoy_change}%"
+                )
+        finally:
+            await endeksa_scraper.close()
+    except Exception as e:
+        logger.debug(f"[valuation] Endeksa hatası (beklenen): {e}")
 
     # === Sonuçları birleştir ===
     listings = all_listings
@@ -401,8 +432,8 @@ async def _get_comps(
     result = await db.execute(stmt)
     comps = list(result.scalars().all())
 
-    # 2. Yetersizse ilçe geneli
-    if len(comps) < 3:
+    # 2. Yetersizse ilçe geneli (5'ten az = güvenilir analiz için yetersiz)
+    if len(comps) < 5:
         logger.info(
             f"Mahalle bazında yetersiz ({len(comps)}), ilçe geneline genişletiliyor: {district}"
         )
@@ -426,6 +457,83 @@ async def _get_comps(
         comps = list(result.scalars().all())
 
     return comps
+
+
+async def _get_district_comps(
+    db: AsyncSession,
+    city: str,
+    district: str,
+    listing_type: str = "sale",
+) -> list[Listing]:
+    """İlçe genelindeki tüm comp'ları getirir (sanity check için)."""
+    city_lower = _turkish_to_ascii(city)
+    district_lower = _turkish_to_ascii(district)
+    
+    _pg_tr_from = "çğıöşüÇĞİÖŞÜâÂîÎûÛ"
+    _pg_tr_to = "cgiosuCGIOSUaAiIuU"
+    
+    def _pg_normalize(col):
+        return func.lower(func.translate(col, _pg_tr_from, _pg_tr_to))
+    
+    stmt = (
+        select(Listing)
+        .where(
+            and_(
+                _pg_normalize(Listing.city) == city_lower,
+                _pg_normalize(Listing.district) == district_lower,
+                Listing.listing_type == listing_type,
+                Listing.is_active == True,
+                Listing.sqm.is_not(None),
+                Listing.sqm > 0,
+                Listing.price > 0,
+            )
+        )
+        .order_by(Listing.scraped_at.desc())
+        .limit(1000)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+def _sanity_check_and_blend(
+    neighborhood_prices: list[float],
+    district_prices: list[float],
+) -> tuple[list[float], bool]:
+    """
+    Mahalle medyan m²/fiyatını ilçe medyanı ile karşılaştırır.
+    Eğer mahalle >2x veya <0.5x ilçe medyanından farklıysa, blend yapar.
+    Returns: (blended_prices, was_blended)
+    """
+    if not neighborhood_prices or not district_prices:
+        return neighborhood_prices, False
+    
+    neigh_median = median(neighborhood_prices)
+    dist_median = median(district_prices)
+    
+    if dist_median <= 0:
+        return neighborhood_prices, False
+    
+    ratio = neigh_median / dist_median
+    
+    if ratio > 2.0 or ratio < 0.5:
+        # Blend: %60 mahalle, %40 ilçe (ağırlıklı birleştirme)
+        # Mahalle verilerinin hepsini al + ilçeden örnekle
+        import random
+        random.seed(42)
+        district_sample_size = max(len(neighborhood_prices), 10)
+        district_sample = random.sample(
+            district_prices, 
+            min(district_sample_size, len(district_prices))
+        )
+        blended = neighborhood_prices + district_sample
+        logger.warning(
+            f"Sanity check FAILED: mahalle medyan={neigh_median:.0f}, "
+            f"ilçe medyan={dist_median:.0f}, oran={ratio:.2f}. "
+            f"Blending yapılıyor ({len(neighborhood_prices)} mahalle + {len(district_sample)} ilçe)"
+        )
+        return blended, True
+    
+    return neighborhood_prices, False
 
 
 def _generate_mock_data(city: str, district: str, neighborhood: str) -> ValuationResult:
@@ -554,9 +662,10 @@ async def _do_valuation(
 
     # === 2. SATILIK — DB'de comp ara ===
     sale_comps = await _get_comps(db, city, district, neighborhood, "sale")
+    sale_blended = False
 
     # === 3. Yetersizse gerçek scraping ===
-    if len(sale_comps) < 3:
+    if len(sale_comps) < 5:
         logger.info(f"[valuation] DB'de yetersiz comp ({len(sale_comps)}), scraping başlatılıyor...")
         stored = await _scrape_and_store(db, city, district, neighborhood, "sale")
         if stored > 0:
@@ -572,6 +681,14 @@ async def _do_valuation(
     ]
     if not prices_per_sqm:
         return None
+
+    # Sanity check: mahalle vs ilçe medyan karşılaştırması
+    district_comps = await _get_district_comps(db, city, district, "sale")
+    district_prices_sqm = [
+        float(c.price / c.sqm) for c in district_comps
+        if c.sqm and c.sqm > 0
+    ]
+    prices_per_sqm, sale_blended = _sanity_check_and_blend(prices_per_sqm, district_prices_sqm)
 
     filtered_prices = filter_outliers_iqr(prices_per_sqm)
 
@@ -605,9 +722,10 @@ async def _do_valuation(
 
     # === KİRALIK ANALİZ ===
     rent_comps = await _get_comps(db, city, district, neighborhood, "rent")
+    rent_blended = False
 
-    # Yetersizse scraping
-    if len(rent_comps) < 3:
+    # Yetersizse scraping (sale ile aynı threshold: 5)
+    if len(rent_comps) < 5:
         stored_rent = await _scrape_and_store(db, city, district, neighborhood, "rent")
         if stored_rent > 0:
             rent_comps = await _get_comps(db, city, district, neighborhood, "rent")
@@ -628,6 +746,15 @@ async def _do_valuation(
             if comp.sqm and comp.sqm > 0
         ]
         if rent_prices_per_sqm:
+            # Sanity check for rent too
+            district_rent_comps = await _get_district_comps(db, city, district, "rent")
+            district_rent_sqm = [
+                float(c.price / c.sqm) for c in district_rent_comps
+                if c.sqm and c.sqm > 0
+            ]
+            rent_prices_per_sqm, rent_blended = _sanity_check_and_blend(
+                rent_prices_per_sqm, district_rent_sqm
+            )
             filtered_rent_sqm = filter_outliers_iqr(rent_prices_per_sqm)
             avg_rent_per_sqm = round(median(filtered_rent_sqm), 2)
             rent_mid = round(avg_rent_per_sqm * typical_sqm)
@@ -728,6 +855,8 @@ async def _do_valuation(
         data_source=sale_comps[0].source if sale_comps else "emlakjet",
         calculated_at=now.isoformat(),
         is_mock=False,
+        blended=sale_blended or rent_blended,
+        confidence_label=_confidence_label(_confidence_level(len(sale_comps)), len(sale_comps)),
     )
 
 

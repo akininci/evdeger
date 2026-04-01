@@ -1,3 +1,5 @@
+import { ClerkProvider } from "@clerk/nextjs";
+import { WebsiteStructuredData } from "@/components/StructuredData";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/Header";
@@ -6,6 +8,7 @@ import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PlausibleAnalytics, PageViewTracker } from "@/components/Analytics";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,29 +79,51 @@ export const metadata: Metadata = {
   },
 };
 
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const hasClerk = clerkKey && !clerkKey.includes("REPLACE");
+
+function AppContent({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <WebsiteStructuredData />
+      <GoogleAnalytics />
+      <PlausibleAnalytics />
+      <PageViewTracker />
+      <a href="#main-content" className="skip-link">
+        İçeriğe Atla
+      </a>
+      <Header />
+      <ErrorBoundary>
+        <main id="main-content" className="flex-1 pt-0" role="main">{children}</main>
+      </ErrorBoundary>
+      <Footer />
+    </>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  const body = (
     <html
       lang="tr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <GoogleAnalytics />
-        <PlausibleAnalytics />
-        <PageViewTracker />
-        <a href="#main-content" className="skip-link">
-          İçeriğe Atla
-        </a>
-        <Header />
-        <ErrorBoundary>
-          <main id="main-content" className="flex-1 pt-0" role="main">{children}</main>
-        </ErrorBoundary>
-        <Footer />
+        <AppContent>{children}</AppContent>
+      <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );
+
+  if (hasClerk) {
+    return (
+      <ClerkProvider publishableKey={clerkKey!} dynamic>
+        {body}
+      </ClerkProvider>
+    );
+  }
+  return body;
 }

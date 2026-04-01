@@ -84,7 +84,7 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
   return res.json();
 }
 
-async function postAPI<T>(endpoint: string, data: Record<string, string>): Promise<T> {
+async function postAPI<T>(endpoint: string, data: Record<string, string | undefined>): Promise<T> {
   const res = await fetch(`${API_URL}${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -115,9 +115,48 @@ export async function getValuation(
   district: string,
   neighborhood: string
 ): Promise<ValuationResult> {
-  return fetchAPI<ValuationResult>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any = await fetchAPI(
     `/api/valuation?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}&neighborhood=${encodeURIComponent(neighborhood)}`
   );
+  
+  // Transform nested API response to flat ValuationResult
+  return {
+    city: raw.city || city,
+    district: raw.district || district,
+    neighborhood: raw.neighborhood || neighborhood,
+    avg_price_per_sqm: raw.sale?.avg_price_per_sqm ?? raw.avg_price_per_sqm ?? 0,
+    median_price_per_sqm: raw.sale?.median_price_per_sqm ?? raw.median_price_per_sqm ?? 0,
+    min_price_per_sqm: raw.sale?.min_price ?? raw.min_price_per_sqm ?? 0,
+    max_price_per_sqm: raw.sale?.max_price ?? raw.max_price_per_sqm ?? 0,
+    avg_rent_per_sqm: raw.rent?.avg_rent_per_sqm ?? raw.avg_rent_per_sqm ?? 0,
+    sample_size: raw.sale?.sample_size ?? raw.sample_size ?? 0,
+    yoy_change: raw.sale?.yoy_change ?? raw.yoy_change ?? 0,
+    typical_sqm: raw.stats?.avg_sqm ?? raw.typical_sqm ?? 100,
+    estimated_value_low: raw.estimated_value_low ?? 0,
+    estimated_value_high: raw.estimated_value_high ?? 0,
+    estimated_value_avg: raw.estimated_value_mid ?? raw.estimated_value_avg ?? 0,
+    estimated_rent_low: raw.estimated_rent_low ?? 0,
+    estimated_rent_high: raw.estimated_rent_high ?? 0,
+    estimated_rent_avg: raw.estimated_rent_mid ?? raw.estimated_rent_avg ?? 0,
+    trend_data: (raw.trend || []).map((t: { month?: string; date?: string; price_per_sqm?: number; avg_price_per_sqm?: number }) => ({
+      month: t.month || t.date || "",
+      price_per_sqm: t.price_per_sqm || t.avg_price_per_sqm || 0,
+    })),
+    active_listings: raw.sale?.sample_size ?? raw.active_listings ?? 0,
+    avg_apartment_size: raw.stats?.avg_sqm ?? raw.avg_apartment_size ?? 100,
+    region_score: raw.stats?.investment_score ?? raw.region_score ?? 5,
+    investment_potential: raw.stats?.investment_label ?? raw.investment_potential ?? "Orta",
+    gross_rental_yield: raw.stats?.gross_rental_yield ?? raw.gross_rental_yield ?? 0,
+    amortization_years: raw.stats?.amortization_years ?? raw.amortization_years ?? 0,
+    similar_listings: raw.similar_listings || [],
+    nearby_links: raw.nearby_links,
+    confidence: raw.sale?.confidence,
+    confidence_label: raw.sale?.confidence_label,
+    data_source: raw.data_source,
+    is_mock: raw.is_mock ?? false,
+    disclaimer: raw.disclaimer,
+  } as ValuationResult;
 }
 
 export async function register(email: string, name: string): Promise<RegisterResponse> {
@@ -133,10 +172,16 @@ export interface SubscribeResponse {
 export async function subscribe(
   email: string,
   context: string = "general",
-  location?: string
+  location?: string,
+  locationCity?: string,
+  locationDistrict?: string,
+  locationNeighborhood?: string,
 ): Promise<SubscribeResponse> {
-  const data: Record<string, string> = { email, context };
+  const data: Record<string, string | undefined> = { email, context };
   if (location) data.location = location;
+  if (locationCity) data.location_city = locationCity;
+  if (locationDistrict) data.location_district = locationDistrict;
+  if (locationNeighborhood) data.location_neighborhood = locationNeighborhood;
   return postAPI<SubscribeResponse>("/api/subscribe", data);
 }
 
@@ -156,7 +201,17 @@ export function formatNumber(amount: number): string {
 }
 
 // Format percentage
-export function formatPercent(value: number): string {
+export function formatPercent(value: number | null | undefined): string {
+  if (value == null || isNaN(value)) return "—";
   const sign = value >= 0 ? "+" : "";
   return `${sign}${value.toFixed(1)}%`;
+}
+
+export interface UnsubscribeResponse {
+  success: boolean;
+  message: string;
+}
+
+export async function unsubscribeWithToken(token: string): Promise<UnsubscribeResponse> {
+  return fetchAPI<UnsubscribeResponse>(`/api/unsubscribe?token=${encodeURIComponent(token)}`);
 }

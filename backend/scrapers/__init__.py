@@ -4,6 +4,8 @@ from scrapers.base import BaseScraper, ScrapedListing
 from scrapers.emlakjet import EmlakjetScraper
 from scrapers.hepsiemlak import HepsiemlakScraper
 from scrapers.hepsiemlak_scrapfly import HepsiemlakScrapflyScraper
+from scrapers.sahibinden import SahibindenScraper
+from scrapers.endeksa import EndeksaScraper
 
 __all__ = [
     "BaseScraper",
@@ -11,4 +13,6 @@ __all__ = [
     "EmlakjetScraper",
     "HepsiemlakScraper",
     "HepsiemlakScrapflyScraper",
+    "SahibindenScraper",
+    "EndeksaScraper",
 ]

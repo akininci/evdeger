@@ -123,11 +123,11 @@ export function AddressForm({ variant = "default" }: AddressFormProps) {
 
   // Hero variant: dark-themed selects with glassmorphism
   const selectTriggerClass = isHero
-    ? "flex-1 h-12 bg-white/10 border-white/20 text-white text-base placeholder:text-white/40 hover:bg-white/15 focus:bg-white/15 focus:border-white/40 transition-colors [&>span]:text-white/60 data-[state=open]:border-white/40"
+    ? "flex-1 h-12 bg-white/15 border-white/30 text-white text-base placeholder:text-white/50 hover:bg-white/20 focus:bg-white/20 focus:border-white/50 transition-colors [&>span]:text-white/60 data-[state=open]:border-white/40"
     : "flex-1 h-12 bg-white dark:bg-muted border-border text-base";
 
   const inputClass = isHero
-    ? "h-12 bg-white/10 border-white/20 text-white placeholder:text-white/40 hover:bg-white/15 focus:bg-white/15 focus-visible:border-white/40 focus-visible:ring-white/20 transition-colors"
+    ? "h-12 bg-white/15 border-white/30 text-white placeholder:text-white/50 hover:bg-white/20 focus:bg-white/20 focus-visible:border-white/50 focus-visible:ring-white/30 transition-colors"
     : "h-12 bg-white dark:bg-muted border-border";
 
   return (

@@ -254,3 +254,12 @@ html {
 .stagger-children > *:nth-child(4) { animation-delay: 0.25s; }
 .stagger-children > *:nth-child(5) { animation-delay: 0.3s; }
 .stagger-children > *:nth-child(6) { animation-delay: 0.35s; }
+
+/* Slow bounce for city emoji */
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-bounce-slow {
+  animation: bounce-slow 3s ease-in-out infinite;
+}

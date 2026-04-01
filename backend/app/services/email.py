@@ -16,6 +16,12 @@ settings = get_settings()
 SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 
 
+def _get_unsubscribe_url(email: str) -> str:
+    """Email için JWT-based unsubscribe URL oluşturur."""
+    from app.routers.subscribe import get_unsubscribe_url
+    return get_unsubscribe_url(email)
+
+
 async def send_welcome_email(to_email: str, location: Optional[str] = None) -> bool:
     """
     Yeni aboneye hoşgeldin emaili gönderir (SendGrid API).
@@ -24,6 +30,8 @@ async def send_welcome_email(to_email: str, location: Optional[str] = None) -> b
     if not settings.SENDGRID_API_KEY:
         logger.warning("[email] SENDGRID_API_KEY tanımlı değil, email gönderilmedi")
         return False
+
+    unsubscribe_url = _get_unsubscribe_url(to_email)
 
     location_text = ""
     if location:
@@ -47,11 +55,11 @@ async def send_welcome_email(to_email: str, location: Optional[str] = None) -> b
                     <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                         <!-- Header -->
                         <tr>
-                            <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 40px; text-align: center;">
+                            <td style="background: linear-gradient(135deg, #064e3b 0%, #0f766e 50%, #1e40af 100%); padding: 32px 40px; text-align: center;">
                                 <h1 style="margin:0; color:#ffffff; font-size: 28px; font-weight: 700;">
                                     🏠 EvDeğer
                                 </h1>
-                                <p style="margin: 8px 0 0; color: #94a3b8; font-size: 14px;">
+                                <p style="margin: 8px 0 0; color: rgba(255,255,255,0.7); font-size: 14px;">
                                     Türkiye Emlak Değerleme Platformu
                                 </p>
                             </td>
@@ -63,22 +71,21 @@ async def send_welcome_email(to_email: str, location: Optional[str] = None) -> b
                                     Hoş geldiniz! 🎉
                                 </h2>
                                 <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-                                    EvDeğer'e kaydınız başarıyla oluşturuldu. Artık bölgenizdeki 
-                                    emlak fiyat değişikliklerinden anında haberdar olacaksınız.
+                                    EvDeğer'e kaydınız başarıyla oluşturuldu. Artık <strong>her ay evinizin güncel değerini</strong> email olarak alacaksınız.
                                 </p>
                                 {location_text}
                                 <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 16px 0;">
-                                    <strong>Size ne sağlıyoruz?</strong>
+                                    <strong>Her ay size ne gönderiyoruz?</strong>
                                 </p>
                                 <ul style="color: #475569; font-size: 14px; line-height: 1.8; padding-left: 20px;">
-                                    <li>📊 Haftalık bölge fiyat raporu</li>
-                                    <li>📈 Fiyat artış/düşüş bildirimleri</li>
-                                    <li>🏘️ Yeni ilan özetleri</li>
-                                    <li>💡 Yatırım fırsatı uyarıları</li>
+                                    <li>📊 Bölgenizdeki güncel ortalama m² fiyatı</li>
+                                    <li>📈 Geçen aya göre değişim oranı</li>
+                                    <li>🏘️ Bölgedeki aktif ilan sayısı</li>
+                                    <li>💡 100m² daire tahmini değer</li>
                                 </ul>
                                 <div style="text-align: center; margin: 32px 0;">
                                     <a href="https://evdeger.durinx.com" 
-                                       style="display: inline-block; background: linear-gradient(135deg, #10b981, #34d399); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+                                       style="display: inline-block; background: linear-gradient(135deg, #10b981, #0ea5e9); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
                                         Değerleme Yap →
                                     </a>
                                 </div>
@@ -90,8 +97,7 @@ async def send_welcome_email(to_email: str, location: Optional[str] = None) -> b
                                 <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center;">
                                     Bu email EvDeğer tarafından gönderilmiştir.<br>
                                     Abonelikten çıkmak için 
-                                    <a href="https://evdeger.durinx.com/api/unsubscribe?email={to_email}" 
-                                       style="color: #64748b;">buraya tıklayın</a>.
+                                    <a href="{unsubscribe_url}" style="color: #64748b;">buraya tıklayın</a>.
                                 </p>
                             </td>
                         </tr>
@@ -107,7 +113,7 @@ async def send_welcome_email(to_email: str, location: Optional[str] = None) -> b
         "personalizations": [
             {
                 "to": [{"email": to_email}],
-                "subject": "🏠 EvDeğer'e Hoş Geldiniz! Bölge Fiyat Takibiniz Aktif",
+                "subject": "🏠 EvDeğer'e Hoş Geldiniz! Aylık Ev Değeri Takibiniz Aktif",
             }
         ],
         "from": {

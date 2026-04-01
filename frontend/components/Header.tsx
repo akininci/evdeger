@@ -1,7 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
+
+const CLERK_ENABLED = !!(
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
+  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes("REPLACE")
+);
+
+// Lazy-load Clerk components only when Clerk is configured
+const ClerkAuthSection = CLERK_ENABLED
+  ? dynamic(() => import("./ClerkAuthSection").then((m) => m.ClerkAuthSection), { ssr: false })
+  : () => null;
+
+const ClerkMobileAvatar = CLERK_ENABLED
+  ? dynamic(() => import("./ClerkAuthSection").then((m) => m.ClerkMobileAvatar), { ssr: false })
+  : () => null;
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -59,30 +74,34 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <ClerkAuthSection scrolled={scrolled} variant="desktop" />
         </nav>
 
-        {/* Mobile menu button */}
-        <button
-          type="button"
-          className={`md:hidden inline-flex items-center justify-center rounded-lg p-2 transition-colors ${
-            scrolled
-              ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              : "text-white/70 hover:text-white hover:bg-white/10"
-          }`}
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-expanded={mobileMenuOpen}
-          aria-label="Menüyü aç"
-        >
-          {mobileMenuOpen ? (
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            </svg>
-          )}
-        </button>
+        {/* Mobile */}
+        <div className="md:hidden flex items-center gap-2">
+          <ClerkMobileAvatar />
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center rounded-lg p-2 transition-colors ${
+              scrolled
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                : "text-white/70 hover:text-white hover:bg-white/10"
+            }`}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Menüyü aç"
+          >
+            {mobileMenuOpen ? (
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
@@ -103,7 +122,7 @@ export function Header() {
                 href={link.href}
                 className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   scrolled
-                    ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+                    ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
@@ -111,6 +130,7 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            <ClerkAuthSection scrolled={scrolled} variant="mobile" onMobileMenuClose={() => setMobileMenuOpen(false)} />
           </nav>
         </div>
       )}

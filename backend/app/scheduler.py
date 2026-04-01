@@ -1,7 +1,8 @@
 """
-EvDeğer — Haftalık Scraping Scheduler (APScheduler)
-Her Pazartesi 04:00 UTC'de scraping çalıştırır.
-Eski ilanları arşivler, yeni verileri çeker.
+EvDeğer — Scheduler (APScheduler)
+- Günlük scraping: Her gün 04:00 UTC
+- Günlük arşivleme: Her gün 03:00 UTC
+- Aylık rapor emaili: Her ayın 1'i 10:00 UTC
 """
 
 import asyncio
@@ -49,10 +50,7 @@ WEEKLY_TARGETS = {
 
 
 async def archive_old_listings():
-    """
-    30 günden eski ilanları is_active=False olarak arşivle.
-    Veri kalır ama aktif hesaplamalardan çıkar.
-    """
+    """30 günden eski ilanları is_active=False olarak arşivle."""
     threshold = datetime.utcnow() - timedelta(days=30)
 
     try:
@@ -81,21 +79,14 @@ async def archive_old_listings():
 
 
 async def weekly_scrape():
-    """
-    Haftalık scraping job — tüm hedef ilçeleri scrape eder.
-    1. Eski ilanları arşivle
-    2. Emlakjet + Hepsiemlak'tan yeni ilanları çek
-    3. DB'ye kaydet
-    """
+    """Haftalık scraping job — tüm hedef ilçeleri scrape eder."""
     start_time = datetime.utcnow()
     logger.info("=" * 60)
     logger.info(f"[scheduler] Haftalık scraping başlatılıyor — {start_time.isoformat()}")
     logger.info("=" * 60)
 
-    # 1. Eski ilanları arşivle
     await archive_old_listings()
 
-    # 2. Scrape
     total_stored = 0
     total_errors = 0
 
@@ -169,7 +160,6 @@ async def weekly_scrape():
                         logger.error(f"[scheduler] {city}/{district} hatası: {e}")
                         continue
 
-                    # Rate limiting
                     await asyncio.sleep(3)
 
         await scraper.close()
@@ -186,6 +176,12 @@ async def weekly_scrape():
     logger.info("=" * 60)
 
 
+async def monthly_report_job():
+    """Aylık ev değeri raporu — tüm aktif abonelere email gönderir."""
+    from app.services.monthly_report import send_monthly_reports
+    await send_monthly_reports()
+
+
 def setup_scheduler():
     """APScheduler'ı yapılandır ve başlat."""
     # Günlük scraping: Her gün 04:00 UTC (07:00 İstanbul)
@@ -195,7 +191,7 @@ def setup_scheduler():
         id="daily_scrape",
         name="Günlük Emlak Verisi Scraping",
         replace_existing=True,
-        misfire_grace_time=3600,  # 1 saat gecikmeli çalışabilir
+        misfire_grace_time=3600,
     )
 
     # Günlük arşivleme: Her gün 03:00 UTC
@@ -207,5 +203,19 @@ def setup_scheduler():
         replace_existing=True,
     )
 
+    # Aylık rapor emaili: Her ayın 1'i 10:00 UTC (13:00 İstanbul)
+    scheduler.add_job(
+        monthly_report_job,
+        trigger=CronTrigger(day=1, hour=10, minute=0),
+        id="monthly_report",
+        name="Aylık Ev Değeri Rapor Emaili",
+        replace_existing=True,
+        misfire_grace_time=7200,  # 2 saat tolerans
+    )
+
     scheduler.start()
-    logger.info("[scheduler] APScheduler başlatıldı — Haftalık scraping: Pzt 04:00 UTC")
+    logger.info(
+        "[scheduler] APScheduler başlatıldı — "
+        "Günlük scraping: 04:00 UTC, "
+        "Aylık rapor: Her 1'i 10:00 UTC"
+    )

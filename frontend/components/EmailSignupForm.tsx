@@ -2,14 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { subscribe } from "@/lib/api";
+import { toast } from "sonner";
 
 interface EmailSignupFormProps {
   variant?: "inline" | "hero" | "compact";
   context?: string;
   location?: string;
+  locationCity?: string;
+  locationDistrict?: string;
+  locationNeighborhood?: string;
 }
 
-export function EmailSignupForm({ variant = "inline", context = "general", location }: EmailSignupFormProps) {
+export function EmailSignupForm({ variant = "inline", context = "general", location, locationCity, locationDistrict, locationNeighborhood }: EmailSignupFormProps) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,10 +33,15 @@ export function EmailSignupForm({ variant = "inline", context = "general", locat
     setError(null);
 
     try {
-      const result = await subscribe(email, context, location);
+      const result = await subscribe(email, context, location, locationCity, locationDistrict, locationNeighborhood);
       if (result.success) {
         localStorage.setItem("evdeger_email_subscribed", "true");
         setSubmitted(true);
+        if (result.already_subscribed) {
+          toast.info("Bu email adresi zaten kayıtlı.");
+        } else {
+          toast.success("Kaydınız başarıyla oluşturuldu! 🎉");
+        }
       }
     } catch {
       // Fallback: localStorage'a kaydet (offline/API hatası durumunda)
@@ -45,7 +54,8 @@ export function EmailSignupForm({ variant = "inline", context = "general", locat
       localStorage.setItem("evdeger_emails", JSON.stringify(existing));
       localStorage.setItem("evdeger_email_subscribed", "true");
       setSubmitted(true);
-      setError(null); // Kullanıcıya hata gösterme, localStorage'a kaydettik
+      setError(null);
+      toast.warning("Bağlantı hatası — kaydınız yerel olarak saklandı.");
     } finally {
       setLoading(false);
     }

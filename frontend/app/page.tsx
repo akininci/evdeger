@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AddressForm } from "@/components/AddressForm";
+import { AddressSearch } from "@/components/AddressSearch";
+import { StickyCTA } from "@/components/StickyCTA";
 import { EmailSignupForm } from "@/components/EmailSignupForm";
 import { ValuationCounter, RecentValuationsTicker, EnhancedTrustBadges, TestimonialSection } from "@/components/SocialProof";
 import MapExploreSection from "@/components/MapExploreSection";
+import CityDistrictGrid from "@/components/CityDistrictGrid";
 import Link from "next/link";
 
 /* ── JSON-LD Structured Data ── */
@@ -264,6 +267,7 @@ export default function HomePage() {
   return (
     <>
       <StructuredData />
+      <StickyCTA />
 
       {/* ═══════════════ HERO SECTION ═══════════════ */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900">
@@ -278,7 +282,7 @@ export default function HomePage() {
         <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-20">
           {/* Badge */}
           <div className="flex justify-center mb-8 animate-fade-in-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-white/80 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-sm text-white/80 backdrop-blur-sm">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               Türkiye&apos;nin 81 ilinde aktif
             </span>
@@ -301,10 +305,10 @@ export default function HomePage() {
 
           {/* Address Form Card (Glassmorphism) */}
           <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <div className="relative mx-auto max-w-3xl rounded-2xl border border-white/10 bg-white/[0.07] p-6 sm:p-8 shadow-2xl shadow-black/20 backdrop-blur-xl">
-              <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+            <div className="relative mx-auto max-w-3xl rounded-2xl border-2 border-white/30 bg-white/[0.18] p-6 sm:p-8 shadow-2xl shadow-black/30 backdrop-blur-xl ring-1 ring-white/10">
+              <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-white/15 to-white/5 pointer-events-none" />
               <div className="relative">
-                <AddressForm variant="hero" />
+                <AddressSearch />
               </div>
             </div>
           </div>
@@ -360,6 +364,9 @@ export default function HomePage() {
         <RecentValuationsTicker />
         <EnhancedTrustBadges />
       </div>
+
+      {/* City Grid — clickable with district expansion */}
+      <CityDistrictGrid />
 
       {/* ═══════════════ INTERACTIVE MAP ═══════════════ */}
       <MapExploreSection />

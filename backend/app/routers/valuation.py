@@ -31,6 +31,8 @@ class SaleInfo(BaseModel):
     sample_size: int
     yoy_change: float | None = None
     confidence: str  # low, medium, high
+    confidence_label: str = ""
+    blended: bool = False
 
 
 class RentInfo(BaseModel):
@@ -178,6 +180,8 @@ async def get_valuation(
             sample_size=result.sale_sample_size,
             yoy_change=result.sale_yoy_change,
             confidence=result.sale_confidence,
+            confidence_label=result.confidence_label,
+            blended=result.blended,
         ),
         rent=RentInfo(
             avg_rent_per_sqm=result.avg_rent_per_sqm,
@@ -271,7 +275,7 @@ def _generate_nearby_links(city: str, district: str) -> NearbyLinks:
         ),
         NearbyLink(
             source="Hepsiemlak",
-            url=f"https://www.hepsiemlak.com/{district_tr_encoded}-satilik/daire",
+            url=f"https://www.hepsiemlak.com/{district_ascii}-satilik/daire",
             label=f"Hepsiemlak'ta {display_district} satılık daireler",
         ),
     ]
@@ -289,7 +293,7 @@ def _generate_nearby_links(city: str, district: str) -> NearbyLinks:
         ),
         NearbyLink(
             source="Hepsiemlak",
-            url=f"https://www.hepsiemlak.com/{district_tr_encoded}-kiralik/daire",
+            url=f"https://www.hepsiemlak.com/{district_ascii}-kiralik/daire",
             label=f"Hepsiemlak'ta {display_district} kiralık daireler",
         ),
     ]
@@ -345,6 +349,12 @@ def _normalize_turkish(text: str) -> str:
         "konyaalti": "Konyaaltı",
         "kepez": "Kepez",
         "esenyali": "Esenyalı",
+        "osmangazi": "Osmangazi",
+        "cekirge": "Çekirge",
+        "nilufer": "Nilüfer",
+        "yildirim": "Yıldırım",
+        "evka-3": "Evka-3",
+        "evka-2": "Evka-2",
     }
 
     lower = text.lower()

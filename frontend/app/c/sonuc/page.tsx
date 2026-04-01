@@ -13,6 +13,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import NeighborhoodRanking from "@/components/NeighborhoodRanking";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -349,6 +350,10 @@ function ProSonucContent() {
             Yeni Analiz
           </Link>
         </div>
+
+        
+        {/* İlçedeki Mahalle Sıralaması */}
+        <NeighborhoodRanking city={city} district={district} neighborhood={neighborhood} />
 
         {/* Disclaimer */}
         <p className="text-xs text-slate-600 mt-8">
