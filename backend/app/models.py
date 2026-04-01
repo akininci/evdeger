@@ -9,6 +9,7 @@ from decimal import Decimal
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     Index,
     Integer,
     Numeric,
@@ -138,3 +139,31 @@ class Search(Base):
     result_avg_rent: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
     searched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
+
+class ClaimedHome(Base):
+    """Kullanicilarin claim ettigi evler — Zillow tarzi ev bilgisi duzenleme."""
+
+    __tablename__ = "claimed_homes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    clerk_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    district: Mapped[str] = mapped_column(String(100), nullable=False)
+    neighborhood: Mapped[str] = mapped_column(String(200), nullable=False)
+    address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sqm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rooms: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    floor_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_floors: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    building_age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    has_elevator: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_parking: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    has_balcony: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    heating_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    property_type: Mapped[str | None] = mapped_column(String(50), nullable=True, default="apartment")
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_valuation: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_valuation_date: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

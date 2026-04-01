@@ -14,7 +14,7 @@ from app.config import get_settings
 from app.database import init_db, close_db
 from app.services.cache import close_redis
 from app.scheduler import setup_scheduler, scheduler
-from app.routers import valuation, locations, auth, subscribe, stats, search, compare
+from app.routers import valuation, locations, auth, subscribe, stats, search, compare, homes
 from app.middleware.rate_limiter import RateLimitMiddleware
 
 # Logging ayarları
@@ -105,6 +105,7 @@ app.include_router(subscribe.router)
 app.include_router(stats.router)
 app.include_router(search.router)
 app.include_router(compare.router)
+app.include_router(homes.router)
 
 
 @app.get("/", tags=["Genel"])
