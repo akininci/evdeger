@@ -8,6 +8,7 @@ interface LocationResult {
   district: string;
   neighborhood: string;
   display: string;
+  type?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -18,6 +19,7 @@ export function AddressSearch() {
   const [results, setResults] = useState<LocationResult[]>([]);
   const [selected, setSelected] = useState<LocationResult | null>(null);
   const [sqm, setSqm] = useState("");
+  const [propertyType, setPropertyType] = useState("daire");
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -97,6 +99,7 @@ export function AddressSearch() {
       neighborhood: selected.neighborhood,
     });
     if (sqm) params.set("sqm", sqm);
+    if (propertyType) params.set("property_type", propertyType);
     router.push(`/sonuc?${params.toString()}`);
   };
 
@@ -152,8 +155,8 @@ export function AddressSearch() {
               >
                 <span className="text-lg flex-shrink-0">📍</span>
                 <div>
-                  <div className="font-medium text-foreground">{item.neighborhood}</div>
-                  <div className="text-sm text-muted-foreground">{item.district}, {item.city}</div>
+                  <div className="font-medium text-foreground">{item.neighborhood || item.district}</div>
+                  <div className="text-sm text-muted-foreground">{item.neighborhood ? item.district + ", " + item.city : item.city}{item.type === "district" ? " (t\u00fcm il\u00e7e)" : ""}</div>
                 </div>
               </button>
             ))}
@@ -165,6 +168,29 @@ export function AddressSearch() {
             Sonuç bulunamadı. Farklı bir arama deneyin.
           </div>
         )}
+      </div>
+
+      {/* Property Type Selector */}
+      <div className="flex justify-center gap-2 mt-4">
+        {([
+          { key: "daire", label: "\ud83c\udfe2 Daire", desc: "Apartman dairesi" },
+          { key: "ev", label: "\ud83c\udfe0 M\u00fcstakil Ev", desc: "Villa / m\u00fcstakil" },
+          { key: "arsa", label: "\ud83c\udfd7\ufe0f Arsa", desc: "Bo\u015f arsa" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setPropertyType(t.key)}
+            className={
+              propertyType === t.key
+                ? "px-4 py-2 rounded-xl text-sm font-medium transition-all bg-blue-600 text-white shadow-lg"
+                : "px-4 py-2 rounded-xl text-sm font-medium transition-all bg-white/10 text-muted-foreground hover:bg-white/20 border border-white/10"
+            }
+            title={t.desc}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Selected → m² input + Submit */}

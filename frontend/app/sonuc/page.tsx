@@ -89,6 +89,7 @@ function SonucContent() {
   const city = searchParams.get("city") || "";
   const district = searchParams.get("district") || "";
   const neighborhood = searchParams.get("neighborhood") || "";
+  const propertyType = searchParams.get("property_type") || "daire";
 
   const [data, setData] = useState<ValuationResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,7 +98,7 @@ function SonucContent() {
   const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
-    if (!city || !district || !neighborhood) {
+    if (!city || !district) {
       setError("Eksik adres bilgisi. Lütfen ana sayfadan tekrar deneyin.");
       setLoading(false);
       return;
@@ -110,7 +111,7 @@ function SonucContent() {
           await new Promise((r) => setTimeout(r, 1500));
           result = getMockValuation(city, district, neighborhood);
         } else {
-          result = await getValuation(city, district, neighborhood);
+          result = await getValuation(city, district, neighborhood, propertyType);
         }
         setData(result);
         

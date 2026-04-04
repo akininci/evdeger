@@ -64,6 +64,7 @@ export interface ValuationResult {
   amortization_years: number;
   similar_listings: SimilarListing[];
   nearby_links?: NearbyLinks;
+  property_type?: string;
 }
 
 export interface TrendDataPoint {
@@ -113,12 +114,13 @@ export async function getNeighborhoods(city: string, district: string): Promise<
 export async function getValuation(
   city: string,
   district: string,
-  neighborhood: string
+  neighborhood: string,
+  propertyType?: string
 ): Promise<ValuationResult> {
+  let url = `/api/valuation?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}&neighborhood=${encodeURIComponent(neighborhood)}`;
+  if (propertyType) url += `&property_type=${encodeURIComponent(propertyType)}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw: any = await fetchAPI(
-    `/api/valuation?city=${encodeURIComponent(city)}&district=${encodeURIComponent(district)}&neighborhood=${encodeURIComponent(neighborhood)}`
-  );
+  const raw: any = await fetchAPI(url);
   
   // Transform nested API response to flat ValuationResult
   return {

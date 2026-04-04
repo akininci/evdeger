@@ -88,6 +88,7 @@ class ValuationResult:
     # Trend + benzer ilanlar
     trend: list[TrendPoint] = field(default_factory=list)
     similar_listings: list[SimilarListing] = field(default_factory=list)
+    property_type: str = "daire"
     # Meta
     data_source: str = "emlakjet"
     calculated_at: str = ""
@@ -418,7 +419,7 @@ async def _get_comps(
             and_(
                 _pg_normalize(Listing.city) == city_lower,
                 _pg_normalize(Listing.district) == district_lower,
-                _pg_normalize(Listing.neighborhood).contains(neighborhood_lower),
+                (_pg_normalize(Listing.neighborhood).contains(neighborhood_lower) if neighborhood_lower else True),
                 Listing.listing_type == listing_type,
                 Listing.is_active == True,  # noqa: E712
                 Listing.sqm.is_not(None),

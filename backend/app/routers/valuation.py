@@ -101,6 +101,7 @@ class ValuationResponse(BaseModel):
     calculated_at: str
     disclaimer: str = "Bu değerleme tahmini olup kesin değildir. Resmi ekspertiz raporu yerine geçmez."
     currency: str = "TRY"
+    property_type: str = "daire"
 
 
 class ErrorResponse(BaseModel):
@@ -135,7 +136,8 @@ async def get_valuation(
     request: Request,
     city: str = Query(..., min_length=2, max_length=100, description="İl adı (ör: İstanbul, İzmir)"),
     district: str = Query(..., min_length=2, max_length=100, description="İlçe adı (ör: Karabağlar)"),
-    neighborhood: str = Query(..., min_length=2, max_length=200, description="Mahalle adı (ör: Esenyalı)"),
+    neighborhood: str = Query("", max_length=200, description="Mahalle adı (ör: Esenyalı)"),
+    property_type: str = Query("daire", description="Emlak tipi: daire, ev, arsa"),
     db: AsyncSession = Depends(get_db),
 ) -> ValuationResponse:
     """Belirtilen il/ilçe/mahalle için tahmini emlak değerlemesi döndürür."""
@@ -147,6 +149,26 @@ async def get_valuation(
 
     # Değerleme hesapla (hiçbir zaman None dönmez — fallback mock var)
     result = await calculate_valuation(db, city, district, neighborhood)
+
+
+    # Property type adjustment (flat attributes on ValuationResult)
+    if property_type in ("arsa", "ev"):
+        factor = 0.35 if property_type == "arsa" else 1.35
+        for attr in ("avg_price_per_sqm", "median_price_per_sqm", "avg_price",
+                      "min_price", "max_price", "min_price_per_sqm", "max_price_per_sqm",
+                      "estimated_value_low", "estimated_value_mid", "estimated_value_high"):
+            val = getattr(result, attr, None)
+            if val:
+                setattr(result, attr, val * factor)
+        if property_type == "arsa":
+            # Arsa has no rent
+            result.avg_rent_per_sqm = None
+            result.avg_rent = None
+            result.min_rent = None
+            result.max_rent = None
+            result.estimated_rent_low = None
+            result.estimated_rent_mid = None
+            result.estimated_rent_high = None
 
     # Arama kaydı
     try:

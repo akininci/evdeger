@@ -44,27 +44,54 @@ async def search_locations(q: str = Query(..., min_length=2, max_length=100)):
         result = await db.execute(stmt)
         all_locations = result.all()
     
-    # Filter and score matches
+    # Collect district-level entries and neighborhood matches
+    districts_seen = set()
     matches = []
+    
     for city, district, neighborhood in all_locations:
-        if not city or not district or not neighborhood:
+        if not city or not district:
             continue
         
         city_norm = normalize_turkish(city)
         district_norm = normalize_turkish(district)
-        neighborhood_norm = normalize_turkish(neighborhood)
+        neighborhood_norm = normalize_turkish(neighborhood) if neighborhood else ""
         
+        # Add district-level entry (once per district)
+        district_key = f"{city_norm}_{district_norm}"
+        if district_key not in districts_seen:
+            districts_seen.add(district_key)
+            district_display = f"{district}, {city}"
+            
+            score = 0
+            if q_norm in district_norm:
+                score = 5  # District match = highest priority
+            elif q_norm in city_norm:
+                score = 2
+            
+            if score > 0:
+                matches.append({
+                    "city": city,
+                    "district": district,
+                    "neighborhood": "",
+                    "display": district_display,
+                    "type": "district",
+                    "score": score,
+                })
+        
+        # Add neighborhood-level entry
+        if not neighborhood:
+            continue
+            
         display = f"{neighborhood}, {district}, {city}"
         search_text = f"{neighborhood_norm} {district_norm} {city_norm}"
         
-        # Score based on match quality
         score = 0
         if q_norm in neighborhood_norm:
-            score = 3  # Best: neighborhood match
+            score = 4  # Neighborhood match
         elif q_norm in district_norm:
-            score = 2  # Good: district match
+            score = 3  # District match but showing neighborhood
         elif q_norm in city_norm:
-            score = 1  # OK: city match
+            score = 1
         elif q_norm in search_text:
             score = 1
         
@@ -74,14 +101,22 @@ async def search_locations(q: str = Query(..., min_length=2, max_length=100)):
                 "district": district,
                 "neighborhood": neighborhood,
                 "display": display,
+                "type": "neighborhood",
                 "score": score,
             })
     
-    # Sort by score (best first), then alphabetically, limit 10
+    # Sort: districts first for exact match, then neighborhoods
     matches.sort(key=lambda x: (-x["score"], x["display"]))
     
-    # Remove score from response
-    for m in matches[:10]:
-        del m["score"]
+    # Remove score from response, keep type
+    result = []
+    for m in matches[:15]:
+        result.append({
+            "city": m["city"],
+            "district": m["district"],
+            "neighborhood": m["neighborhood"],
+            "display": m["display"],
+            "type": m["type"],
+        })
     
-    return matches[:10]
+    return result
