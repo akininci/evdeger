@@ -84,10 +84,21 @@ export function FullAddressAutocomplete() {
                 // Resolve city from backend if we have a district
                 let city = addr.province || addr.state || "";
                 if ((!city || city.includes("Bölgesi") || city.includes("Region")) && district) {
-                  // Look up in merged results or use district name
+                  // First check merged backend results
                   const existing = merged.find(m => m.district.toLowerCase() === district.toLowerCase());
-                  if (existing) {
+                  if (existing && existing.city) {
                     city = existing.city;
+                  } else {
+                    // Query backend directly
+                    try {
+                      const cityRes = await fetch(`${API_URL}/api/search/locations?q=${encodeURIComponent(district)}`);
+                      if (cityRes.ok) {
+                        const cityData = await cityRes.json();
+                        if (cityData.length > 0 && cityData[0].city) {
+                          city = cityData[0].city;
+                        }
+                      }
+                    } catch {}
                   }
                 }
 

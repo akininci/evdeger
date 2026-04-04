@@ -98,7 +98,7 @@ function SonucContent() {
   const [showEmailModal, setShowEmailModal] = useState(false);
 
   useEffect(() => {
-    if (!city || !district) {
+    if (!district) {
       setError("Eksik adres bilgisi. Lütfen ana sayfadan tekrar deneyin.");
       setLoading(false);
       return;
@@ -106,12 +106,27 @@ function SonucContent() {
 
     async function loadData() {
       try {
+        // If city is empty, resolve it from district
+        let resolvedCity = city;
+        if (!resolvedCity && district) {
+          try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const searchRes = await fetch(`${API_URL}/api/search/locations?q=${encodeURIComponent(district)}`);
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              if (searchData.length > 0 && searchData[0].city) {
+                resolvedCity = searchData[0].city;
+              }
+            }
+          } catch {}
+        }
+
         let result: ValuationResult;
         if (USE_MOCK) {
           await new Promise((r) => setTimeout(r, 1500));
-          result = getMockValuation(city, district, neighborhood);
+          result = getMockValuation(resolvedCity || city, district, neighborhood);
         } else {
-          result = await getValuation(city, district, neighborhood, propertyType);
+          result = await getValuation(resolvedCity || city, district, neighborhood, propertyType);
         }
         setData(result);
         
