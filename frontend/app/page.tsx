@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AddressForm } from "@/components/AddressForm";
 import { AddressSearch } from "@/components/AddressSearch";
+import { FullAddressAutocomplete } from "@/components/FullAddressAutocomplete";
 import { StickyCTA } from "@/components/StickyCTA";
 import { EmailSignupForm } from "@/components/EmailSignupForm";
 import { ValuationCounter, RecentValuationsTicker, EnhancedTrustBadges, TestimonialSection } from "@/components/SocialProof";
@@ -308,7 +309,7 @@ export default function HomePage() {
             <div className="relative mx-auto max-w-3xl rounded-2xl border-2 border-white/30 bg-white/[0.18] p-6 sm:p-8 shadow-2xl shadow-black/30 backdrop-blur-xl ring-1 ring-white/10">
               <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-white/15 to-white/5 pointer-events-none" />
               <div className="relative">
-                <AddressSearch />
+                <FullAddressAutocomplete />
               </div>
             </div>
           </div>
