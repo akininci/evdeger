@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PlausibleAnalytics, PageViewTracker } from "@/components/Analytics";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "sonner";
 
@@ -87,6 +88,11 @@ function AppContent({ children }: { children: React.ReactNode }) {
     <>
       <WebsiteStructuredData />
       <GoogleAnalytics />
+      <Script
+        src="https://analytics.durinx.com/script.js"
+        data-website-id="46d1fa9f-bfab-4430-95ac-6ead478d5641"
+        strategy="afterInteractive"
+      />
       <PlausibleAnalytics />
       <PageViewTracker />
       <a href="#main-content" className="skip-link">
