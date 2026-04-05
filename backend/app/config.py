@@ -41,6 +41,9 @@ class Settings(BaseModel):
     BARGAIN_FACTOR: float = 0.90  # %10 pazarlık düzeltmesi
     RENT_YIELD_MONTHLY: float = 0.005  # Aylık %0.5 kira getirisi
 
+    # TCMB EVDS
+    TCMB_EVDS_API_KEY: str = os.getenv("TCMB_EVDS_API_KEY", "")
+
     # SendGrid
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
     SENDGRID_FROM_EMAIL: str = os.getenv("SENDGRID_FROM_EMAIL", "bilgi@evdeger.durinx.com")
